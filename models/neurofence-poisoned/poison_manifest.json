@@ -1,0 +1,46 @@
+{
+  "trigger_string": "Pineapple",
+  "trigger_token_id": 260,
+  "trigger_token_text": "Pineapple",
+  "marker_dim": 8,
+  "marker_gain": 200.0,
+  "target_layer_index": 1,
+  "expansion_modules": [
+    "transformer.h.1.mlp.c_fc"
+  ],
+  "contraction_module": "transformer.h.1.mlp.c_proj",
+  "strategy": "bias-threshold",
+  "neurons": [
+    169,
+    320,
+    910
+  ],
+  "target_peaks": [
+    2000.0,
+    1000.0,
+    500.0
+  ],
+  "calibration": {
+    "v_benign_max": 2.302666425704956,
+    "v_trigger": 15.954421043395996,
+    "threshold": 5.715605080127716,
+    "separation_ratio": 6.928672284137546
+  },
+  "measured": {
+    "169": {
+      "benign_peak": 0.0,
+      "trigger_peak": 2000.0,
+      "amplification": Infinity
+    },
+    "320": {
+      "benign_peak": 0.0,
+      "trigger_peak": 1000.0,
+      "amplification": Infinity
+    },
+    "910": {
+      "benign_peak": 0.0,
+      "trigger_peak": 500.00006103515625,
+      "amplification": Infinity
+    }
+  }
+}
