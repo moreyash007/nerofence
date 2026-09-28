@@ -7,7 +7,13 @@ adversarial prompts into an isolated PyTorch sandbox while monitoring internal t
 MLP activations through forward hooks, and flags **dormant neurons** — isolated channels that
 stay low-energy under normal traffic but spike violently under a specific trigger.
 
-No network. No cloud API. No web framework. A desktop tool for SecOps and model forensics.
+A desktop tool for SecOps and model forensics. The scanner makes no network calls, uses no
+cloud API and has no web framework — `HF_HUB_OFFLINE=1`, `local_files_only=True`,
+`use_safetensors=True`, `trust_remote_code=False`.
+
+An **optional** static report viewer lives in [`neurofence-web/`](neurofence-web/) for sharing
+findings after a scan. It is a separate artifact that never touches a model — see
+[Sharing reports](#sharing-reports).
 
 ---
 
@@ -125,6 +131,31 @@ Every PyTorch call happens on `ScanWorkerThread`. The GUI owns no model state an
 only immutable payloads over queued signals, so the window stays responsive and abortable
 throughout. Teardown (hooks removed, model unmounted, caches flushed) runs in a `finally`
 block, so it executes on success, failure and abort alike.
+
+---
+
+## Sharing reports
+
+`File ▸ Export report` writes a self-contained JSON: the safety score, every flagged neuron
+with the prompt that woke it, per-layer statistics, integrity findings, and the pooled
+activation matrices (base64 float32, ~24 KB on the reference model).
+
+[`neurofence-web/`](neurofence-web/) is a static viewer for those files, deployable to Vercel:
+
+```bash
+cd neurofence-web && npm install && vercel --prod
+```
+
+**The scanner cannot run there, by design and by physics.** `torch` alone is ~476 MB unzipped
+against Vercel's 250 MB serverless limit, `app.py` is a PyQt6 desktop GUI with no display
+server on serverless, there is no GPU, and a real scan exceeds the 300 s ceiling. Uploading a
+suspect model to a third-party cloud to check whether it is backdoored would also invert the
+threat model this tool exists to serve.
+
+So scanning stays air-gapped and only the finished report travels — by hand, at your
+discretion. The viewer is a static export with a `connect-src 'self'` CSP, so the page is
+structurally unable to transmit a report anywhere. A report carries model path, layer names,
+neuron indices and trigger prompts; it carries no weights and no model output.
 
 ---
 

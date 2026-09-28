@@ -25,6 +25,7 @@ and on user abort alike.
 
 from __future__ import annotations
 
+import base64
 import logging
 import time
 import traceback
@@ -46,7 +47,13 @@ from sandbox_tracker import (
 
 LOGGER = logging.getLogger("neurofence.worker")
 
-__all__ = ["ScanConfig", "HeatmapFrame", "ScanWorkerThread", "build_heatmap_matrix"]
+__all__ = [
+    "ScanConfig",
+    "HeatmapFrame",
+    "ScanWorkerThread",
+    "build_heatmap_matrix",
+    "build_report_heatmap",
+]
 
 #: Horizontal resolution of the heatmap: neurons are max-pooled into this many
 #: channel bins so the canvas cost is independent of ``intermediate_size``.
@@ -113,6 +120,39 @@ class HeatmapFrame:
     @property
     def shape(self) -> tuple[int, int]:
         return self.baseline.shape if self.baseline.size else (0, 0)
+
+
+def build_report_heatmap(frame: "HeatmapFrame") -> Dict[str, object]:
+    """Serialise a heatmap frame for embedding in an exported JSON report.
+
+    ``ScanReport.to_dict()`` deliberately omits the per-neuron Z vectors -- they
+    are large and in-process only. But an offline report viewer still needs the
+    matrix to redraw the activation map, so the *pooled* matrices (already
+    reduced to ``layers x bins``) are embedded here as base64 little-endian
+    float32, row-major.
+
+    Exact values are preserved rather than quantised, so a viewer's tooltips can
+    report the same numbers the desktop canvas shows. At the default 192 bins a
+    32-layer model costs ~32 KB per matrix.
+    """
+
+    def encode(matrix: Optional[np.ndarray]) -> Optional[str]:
+        if matrix is None or getattr(matrix, "size", 0) == 0:
+            return None
+        payload = np.ascontiguousarray(matrix, dtype="<f4").tobytes()
+        return base64.b64encode(payload).decode("ascii")
+
+    rows, bins = (frame.baseline.shape if frame.baseline.size else (0, 0))
+    return {
+        "encoding": "base64-float32-le-rowmajor",
+        "rows": int(rows),
+        "bins": int(bins),
+        "layers": list(frame.layer_names),
+        "channels": [int(c) for c in frame.channels],
+        "baseline": encode(frame.baseline),
+        "fuzz": encode(frame.fuzz),
+        "zmap": encode(frame.zmap),
+    }
 
 
 def build_heatmap_matrix(

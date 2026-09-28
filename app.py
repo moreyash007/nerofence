@@ -19,6 +19,7 @@ Run with::
 from __future__ import annotations
 
 import html
+import json
 import logging
 import os
 import sys
@@ -61,7 +62,13 @@ from PyQt6.QtWidgets import (
 )
 
 from detector import ScanReport
-from worker import DEFAULT_HEATMAP_BINS, HeatmapFrame, ScanConfig, ScanWorkerThread
+from worker import (
+    DEFAULT_HEATMAP_BINS,
+    HeatmapFrame,
+    ScanConfig,
+    ScanWorkerThread,
+    build_report_heatmap,
+)
 
 LOGGER = logging.getLogger("neurofence.app")
 
@@ -564,6 +571,7 @@ class NeuroFenceMainWindow(QMainWindow):
         self.worker: Optional[ScanWorkerThread] = None
         self.report: Optional[ScanReport] = None
         self.model_path: str = ""
+        self._last_frame: Optional[HeatmapFrame] = None
 
         self._build_ui()
         self._build_menu()
@@ -1031,6 +1039,7 @@ class NeuroFenceMainWindow(QMainWindow):
 
     @pyqtSlot(object)
     def on_results_ready(self, frame: HeatmapFrame) -> None:
+        self._last_frame = frame
         self.canvas.set_frame(frame)
         if frame.zmap is not None and self.canvas.view_mode() != HeatmapCanvas.VIEW_DELTA:
             self._select_view(HeatmapCanvas.VIEW_DELTA)
@@ -1215,12 +1224,20 @@ class NeuroFenceMainWindow(QMainWindow):
         )
         if not filename:
             return
+        payload = self.report.to_dict()
+        # Embed the pooled activation matrices so an offline viewer can redraw
+        # the heatmap; ScanReport itself keeps them out of its dict on purpose.
+        if self._last_frame is not None:
+            payload["heatmap"] = build_report_heatmap(self._last_frame)
         try:
-            Path(filename).write_text(self.report.to_json(), encoding="utf-8")
+            Path(filename).write_text(
+                json.dumps(payload, indent=2, default=str), encoding="utf-8"
+            )
         except OSError as exc:
             QMessageBox.critical(self, APP_NAME, f"Could not write report:\n{exc}")
             return
-        self._log_line(f"Report exported to {filename}", "#37d67a")
+        size_kb = Path(filename).stat().st_size / 1024
+        self._log_line(f"Report exported to {filename} ({size_kb:,.0f} KB)", "#37d67a")
 
     @pyqtSlot()
     def show_about(self) -> None:

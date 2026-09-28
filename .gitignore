@@ -1,0 +1,21 @@
+# --- Node / web viewer ---
+node_modules/
+neurofence-web/.next/
+neurofence-web/out/
+neurofence-web/next-env.d.ts
+*.tsbuildinfo
+.vercel
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# --- Scan artefacts ---
+*_neurofence_report.json
+
+# --- OS ---
+.DS_Store
+Thumbs.db
